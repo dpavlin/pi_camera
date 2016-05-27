@@ -85,7 +85,7 @@ class RotaryEncoder:
 			else:
 				self.direction = self.ANTICLOCKWISE
 		if event > 0:
-			self.callback(event,self.camera)
+			self.callback(event)
 			if event == self.ANTICLOCKWISE:
 				self.value -= 1
 			if event == self.CLOCKWISE:
