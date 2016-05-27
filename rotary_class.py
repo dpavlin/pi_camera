@@ -24,6 +24,7 @@ class RotaryEncoder:
 	rotary_c = 0
 	last_state = 0
 	direction = 0
+	value = 0
 
 	# Initialise rotary encoder object
 	def __init__(self,pinA,pinB,button,callback):
@@ -84,7 +85,11 @@ class RotaryEncoder:
 			else:
 				self.direction = self.ANTICLOCKWISE
 		if event > 0:
-			self.callback(event)
+			self.callback(event,self.camera)
+			if event == self.ANTICLOCKWISE:
+				self.value -= 1
+			if event == self.CLOCKWISE:
+				self.value += 1
 		return
 
 
