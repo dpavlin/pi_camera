@@ -13,9 +13,9 @@ import time
 from rotary_class import RotaryEncoder
 
 # Define GPIO inputs
-PIN_A = 14 	# Pin 8 
-PIN_B = 15	# Pin 10
-BUTTON = 4	# Pin 7
+PIN_A = 27
+PIN_B = 22
+BUTTON = 17
 
 # This is the event callback routine to handle events
 def switch_event(event):
@@ -32,6 +32,7 @@ def switch_event(event):
 # Define the switch
 rswitch = RotaryEncoder(PIN_A,PIN_B,BUTTON,switch_event)
 
+print "Rotary encoder pins: %d %d switch: %d" % ( PIN_A, PIN_B, BUTTON )
 while True:
 	time.sleep(0.5)
 
