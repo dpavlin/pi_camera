@@ -24,6 +24,11 @@ camera = picamera.PiCamera()
 camera.start_preview()
 camera.annotate_text = "Ready"
 
+camera.resolution = (640, 480)
+camera.framerate = 24
+
+print "Camera %dx%d" % camera.resolution
+
 # This is the event callback routine to handle events
 def switch_event(event):
 	t = time.clock()
