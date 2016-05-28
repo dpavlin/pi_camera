@@ -1,0 +1,3 @@
+[submodule "ssocr"]
+	path = ssocr
+	url = https://github.com/auerswal/ssocr
