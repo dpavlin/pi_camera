@@ -1,23 +1,15 @@
 ssocr() {
-ssocr/ssocr --verbose --debug-image --debug-output --threshold=99 --foreground=white --background=black --number-digits 4 rotate $1 r_threshold $2 | tee $2@$1.log
+ssocr/ssocr --verbose --debug-image=$2@$1.debug.png --debug-output --threshold=99 --foreground=white --background=black --number-digits 4 rotate $1 r_threshold $2 | tee $2@$1.log
 }
 
 ocr() {
-	ssocr 0 $1
-	ssocr 10 $1
-	ssocr 20 $1
-	ssocr 30 $1
+	seq 0 5 45 | while read deg ; do
+		ssocr $deg $1
+	done
 
-	ssocr 355 $1
-	ssocr 350 $1
-	ssocr 345 $1
-	ssocr 340 $1
-	ssocr 335 $1
-	ssocr 330 $1
-	ssocr 325 $1
-	ssocr 320 $1
-	ssocr 315 $1
-	ssocr 310 $1
+	seq 315 5 355 | while read deg ; do
+		ssocr $deg $1
+	done
 }
 
 ls capture/capture*.jpg | while read image ; do
