@@ -25,6 +25,7 @@ class RotaryEncoder:
 	last_state = 0
 	direction = 0
 	value = 0
+	button = 0
 
 	# Initialise rotary encoder object
 	def __init__(self,pinA,pinB,button,callback):
@@ -99,6 +100,7 @@ class RotaryEncoder:
 			event = self.BUTTONUP 
 		else:
 			event = self.BUTTONDOWN 
+			self.button = 1
 		self.callback(event)
 		return
 
