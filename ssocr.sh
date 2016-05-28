@@ -7,7 +7,7 @@ ocr() {
 		ssocr $deg $1
 	done
 
-	seq 315 5 355 | while read deg ; do
+	seq 310 5 359 | while read deg ; do
 		ssocr $deg $1
 	done
 }
@@ -19,3 +19,7 @@ done
 #ls -lS capture/*.log
 
 ls -Ss capture/*@*.log | grep -v '^0' | awk '{ print $2 }' | xargs grep .
+
+if [ ! -e capture/rotation ] ; then
+	ls -Ss capture/*@*.log | grep -v '^0' | cut -d@ -f2 | cut -d\. -f1 | sort | uniq > capture/rotation
+fi
