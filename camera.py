@@ -11,6 +11,9 @@
 import sys
 import time
 import os
+import StringIO
+import subprocess
+from PIL import Image
 
 from rotary_class import RotaryEncoder
 
@@ -31,12 +34,15 @@ camera.framerate = 30
 
 print "Camera %dx%d" % camera.resolution
 
+in_menu = False
+
 try:
 	with open("/tmp/capture-zoom", 'r') as f:
 		zoom = [float(line.rstrip('\n')) for line in f]
 		print "# camera.zoom", camera.zoom
 		camera.zoom = tuple(zoom)
 		print "# camera.zoom", camera.zoom
+		in_menu = True
 except:
 	print "# camera.zoom", camera.zoom
 
@@ -45,6 +51,7 @@ try:
 		rotation = [line.rstrip('\n') for line in f]
 		camera.rotation = rotation[0]
 		print "# camera.rotation", camera.rotation
+		in_menu = True
 except:
 	print "# camera.rotation", camera.rotation
 
@@ -74,10 +81,12 @@ frame_nr = 1
 
 state = 'Rotation'
 valid_states = [ 'Rotation', 'Zoom', 'Save', 'Exit' ]
-in_menu = False
 camera.annotate_text = state
 
 zoom_axis = 0
+
+ssocr_rotate = 0
+o = None # overlay
 
 while True:
 	time.sleep(0.5)
@@ -186,6 +195,20 @@ while True:
 			camera.annotate_text = "Save " + file
 			frame_nr += 1
 			in_menu = True
+
+			command="./ssocr/ssocr.rpi --debug-image=%s.debug.png rotate %d %s > %s.stdout 2> %s.stderr" % ( file, ssocr_rotate, file, file, file )
+			print "# ",command
+			subprocess.call(command, shell=True)
+
+			img = Image.open(file+'.debug.png')
+			pad = Image.new('RGB', (
+				((img.size[0] + 31) // 32) * 32,
+				((img.size[1] + 15) // 16) * 16,
+				))
+			pad.paste(img, (0, 0))
+			if ( o != None ):
+				camera.remove_overlay(o)
+			o = camera.add_overlay(pad.tostring(), size=img.size, alpha=128, layer=3) # top of 2 preview
 
 		elif state == "Exit":
 			exit(0)
