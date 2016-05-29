@@ -74,6 +74,7 @@ frame_nr = 1
 
 state = 'Rotation'
 valid_states = [ 'Rotation', 'Zoom', 'Save', 'Exit' ]
+select_state = False
 camera.annotate_text = state
 
 zoom_axis = 0
@@ -85,7 +86,25 @@ while True:
 		dv = last_value - v
 		print "# rotary encoder = ",v, "dv=",dv
 
-		if state == "Rotation":
+		if select_state:
+			if state in valid_states:
+				i = valid_states.index(state)
+				mod = len(valid_states)
+				if dv > 0:
+					i += 1
+				else:
+					i -= 1
+
+				try:
+					state = valid_states[ i ]
+				except:
+					print "# invalid index ",i,mod
+					state = valid_states[0]
+
+			camera.annotate_text = state + " [click to select]"
+			print "# new state", state, select_state
+
+		elif state == "Rotation":
 
 			step = 0
 			if last_value < v:
@@ -121,13 +140,6 @@ while True:
 			camera.annotate_text = "Zoom %d %.3f %s" % ( zoom_axis, camera.zoom[zoom_axis],step )
 			print "#zoom",camera.zoom,z
 
-		elif state in valid_states:
-			i = valid_states.index(state)
-			mod = len(valid_states)
-			if dv > 0:
-				state = valid_states[ i + 1 % mod ]
-			else:
-				state = valid_states[ i - 1 % mod ]
 		else:
 			print "# ignored rotation in state",state
 
@@ -135,7 +147,11 @@ while True:
 		last_value = v
 
 	if rswitch.button == 1:
-		if state == "Rotation":
+		if select_state:
+			select_state = False
+			camera.annotate_text = state + " [selected]"
+
+		elif state == "Rotation":
 			state = "Zoom"
 			camera.annotate_text = state 
 			print "# /tmp/capture-rotation", camera.rotation
@@ -147,12 +163,13 @@ while True:
 			
 			if zoom_axis > 3:
 				state = "Save"
+				select_state = True
 				camera.annotate_text = state
 				# save camera zoom to file
 				print "# /tmp/capture-zoom", camera.zoom
 				with open("/tmp/capture-zoom", 'w') as f:
 				    for s in camera.zoom:
-				        f.write(str(s) + '\n')
+					f.write(str(s) + '\n')
 				zoom_axis = 0
 			else:
 				camera.annotate_text = "Zoom %d %.3f" % ( zoom_axis, camera.zoom[zoom_axis] )
@@ -165,6 +182,7 @@ while True:
 			camera.capture( file )
 			camera.annotate_text = "Save " + file
 			frame_nr += 1
+			select_state = True
 
 		elif state == "Exit":
 			exit
