@@ -63,11 +63,33 @@ testBorders = [ [[1,testWidth],[1,testHeight]] ]  # [ [[start pixel on left side
 
 # in debug mode, a file debug.bmp is written to disk with marked changed pixel an with marked border of scan-area
 # debug mode should only be turned on while testing the parameters above
-debugMode = False # False or True
+#debugMode = False # False or True
+debugMode = True # False or True
+
+
+opt="" # raspistill
+
+try:
+	with open("capture/capture-zoom", 'r') as f:
+		zoom = [float(line.rstrip('\n')) for line in f]
+		print "# zoom = ", zoom
+		opt += " -roi " + str(zoom).replace('[','').replace(' ','').replace(']','')
+		print "# opt", opt
+except:
+	print "# opt", opt
+
+try:
+	with open("capture/capture-rotation", 'r') as f:
+		rotation = [line.rstrip('\n') for line in f]
+		opt += " -rot " + str(rotation[0])
+		print "# opt", opt
+except:
+	print "# opt", opt
 
 # Capture a small test image (for motion detection)
 def captureTestImage(settings, width, height):
-    command = "raspistill %s -w %s -h %s -t 200 -e bmp -n -o -" % (settings, width, height)
+    command = "raspistill %s -w %s -h %s -t 200 -e bmp -n %s -o -" % (settings, width, height, opt)
+    print "# command ",command
     imageData = StringIO.StringIO()
     imageData.write(subprocess.check_output(command, shell=True))
     imageData.seek(0)
