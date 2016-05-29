@@ -43,7 +43,7 @@ except:
 try:
 	with open("/tmp/capture-rotation", 'r') as f:
 		rotation = [line.rstrip('\n') for line in f]
-		camera.rotation = rotation
+		camera.rotation = rotation[0]
 		print "# camera.rotation", camera.rotation
 except:
 	print "# camera.rotation", camera.rotation
