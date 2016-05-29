@@ -74,7 +74,7 @@ frame_nr = 1
 
 state = 'Rotation'
 valid_states = [ 'Rotation', 'Zoom', 'Save', 'Exit' ]
-select_state = False
+in_menu = False
 camera.annotate_text = state
 
 zoom_axis = 0
@@ -86,7 +86,7 @@ while True:
 		dv = last_value - v
 		print "# rotary encoder = ",v, "dv=",dv
 
-		if select_state:
+		if in_menu:
 			if state in valid_states:
 				i = valid_states.index(state)
 				mod = len(valid_states)
@@ -102,7 +102,7 @@ while True:
 					state = valid_states[0]
 
 			camera.annotate_text = state + " [click to select]"
-			print "# new state", state, select_state
+			print "# new state", state, in_menu
 
 		elif state == "Rotation":
 
@@ -147,10 +147,11 @@ while True:
 		last_value = v
 
 	if rswitch.button == 1:
-		if select_state:
-			select_state = False
+		if in_menu:
+			in_menu = False
 			camera.annotate_text = state + " [selected]"
 
+		# states which capture clicks when not in_menu
 		elif state == "Rotation":
 			state = "Zoom"
 			camera.annotate_text = state 
@@ -163,7 +164,7 @@ while True:
 			
 			if zoom_axis > 3:
 				state = "Save"
-				select_state = True
+				in_menu = True
 				camera.annotate_text = state
 				# save camera zoom to file
 				print "# /tmp/capture-zoom", camera.zoom
@@ -174,7 +175,9 @@ while True:
 			else:
 				camera.annotate_text = "Zoom %d %.3f" % ( zoom_axis, camera.zoom[zoom_axis] )
 
-		elif state == "Save":
+
+		# execute selected state after button click (ignore in_menu)
+		if state == "Save":
 			#file = "%s/capture-%03d.jpg" % ( os.path.abspath( os.curdir ), frame_nr )
 			file = "/tmp/capture-%03d.jpg" % ( frame_nr )
 			print "#BUTTON",file
@@ -182,10 +185,13 @@ while True:
 			camera.capture( file )
 			camera.annotate_text = "Save " + file
 			frame_nr += 1
-			select_state = True
+			in_menu = True
 
 		elif state == "Exit":
-			exit
+			exit(0)
+			in_menu = True
+		else:
+			print "# no code for button", state
 
 	rswitch.button = 0
 
