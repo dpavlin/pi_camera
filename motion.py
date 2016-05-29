@@ -25,8 +25,8 @@ threshold = 10
 sensitivity = 20
 forceCapture = True
 forceCaptureTime = 60 * 60 # Once an hour
-filepath = "/home/pi/picam"
-filenamePrefix = "capture"
+filepath = "capture/"
+filenamePrefix = "motion"
 diskSpaceToReserve = 40 * 1024 * 1024 # Keep 40 mb free on disk
 cameraSettings = ""
 
@@ -161,3 +161,4 @@ while (True):
     # Swap comparison buffers
     image1 = image2
     buffer1 = buffer2
+
