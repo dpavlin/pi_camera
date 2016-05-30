@@ -36,8 +36,8 @@ camera.framerate = 30
 print "Camera %dx%d" % camera.resolution
 
 in_menu = False
-state = 'Rotation'
-valid_states = [ 'Rotation', 'Zoom', 'Save', 'OCR', 'Threshold', 'Exit' ]
+state = 'Flip'
+valid_states = [ 'Flip', 'Zoom', 'Save', 'Rotate', 'Threshold', 'Digits', 'Exit' ]
 
 try:
 	with open("/tmp/capture-zoom", 'r') as f:
@@ -73,6 +73,8 @@ def switch_event(event):
 		print t,"Button down"
 	elif event == RotaryEncoder.BUTTONUP:
 		print t,"Button up"
+		in_menu = True
+		camera.annotate_text = camera.annotate_text + " [menu]"
 
 	return
 
@@ -90,17 +92,19 @@ zoom_axis = 0
 
 
 
-ssocr_rotate = 0
-ssocr_threshold = 50
+ssocr_val = { 'Rotate': 0, 'Threshold': 90, 'Digits': 4 }
+ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10 }
 
 overlay = None
-overlay_img = None
 
-def overlay_rotation(overlay, img, rotation):
+def overlay_img(overlay, img = None):
+
+	rotation = ssocr_val['Rotate']
 
 	if ( img == None ):
 		img = Image.new('1',(320,200),0)
-		overlay.opacity = 128
+		if overlay != None:
+			overlay.opacity = 128
 
 		draw = ImageDraw.Draw(img) 
 		bbox = (img.size[0] / 4,img.size[1] / 4,img.size[0] / 4 * 3,img.size[1] / 4 * 3)
@@ -145,6 +149,7 @@ def overlay_rotation(overlay, img, rotation):
 
 	if ( overlay != None ):
 		camera.remove_overlay(overlay)
+		overlay = None
 
 	pad = Image.new('RGB', (
 		((img.size[0] + 31) // 32) * 32,
@@ -159,22 +164,21 @@ def overlay_rotation(overlay, img, rotation):
 
 
 def ssocr(overlay, file):
-	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits 4 --threshold=%d rotate %d r_threshold %s 2>&1 > %s.out" % ( file, ssocr_threshold, ssocr_rotate, file, file )
+	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits -1 --threshold=%d rotate %d r_threshold %s 2>&1 > %s.out" % ( file, ssocr_val['Threshold'], ssocr_val['Rotate'], file, file )
 	print "# ",command
 	camera.annotate_text = command
 	subprocess.call(command, shell=True)
 
 	camera.annotate_text = "image"
 	img = Image.open(file+'.debug.png')
-	overlay_img = img
 
-	overlay = overlay_rotation(overlay, img, ssocr_rotate)
+	overlay = overlay_img(overlay, img)
 
 	with open(file+'.out', 'r') as f:
 		out = [line.rstrip('\n') for line in f]
 		print "# out", out
 
-	camera.annotate_text = state + ' ' + str(ssocr_rotate) + ' ' + str(out)
+	camera.annotate_text = state + ' ' + str(ssocr) + "\n" + str(out)
 
 	return overlay
 
@@ -207,7 +211,7 @@ while True:
 			camera.annotate_text = state + " [click to select]"
 			print "# new state", state, in_menu
 
-		elif state == "Rotation":
+		elif state == "Flip":
 
 			step = 0
 			if last_value < v:
@@ -215,9 +219,13 @@ while True:
 			else:
 				step = -90
 			camera.rotation = camera.rotation + step
-			camera.annotate_text = "Rotation="+str(camera.rotation)
+			camera.annotate_text = "Flip="+str(camera.rotation)
 
 		elif state == "Zoom":
+
+			if ( overlay != None ):
+				camera.remove_overlay(overlay)
+				overlay = None
 
 			step = dv * 0.01
 			print "step",step
@@ -246,30 +254,20 @@ while True:
 			except:
 				print "# invalid zoom ",z
 
-		elif state == "OCR":
+		elif state == "Rotate" or state == "Threshold" or state == 'Digits':
 
 			step = dv / 2
-			print "step",step
-			ssocr_rotate += step
-			ssocr_rotate = ( 360 + ssocr_rotate ) % 360
-			print "# OCR",step,ssocr_rotate
-			camera.annotate_text = "OCR " + str(ssocr_rotate) + ' ' + str(step)
-			overlay.alpha = 128
+			max = ssocr_max[state]
+			print "step",step,"max", max
+			ssocr_val[state] += step
+			ssocr_val[state] = ( max + ssocr_val[state] ) % max
+			print "# ",state,ssocr_val[state],step,max
+			camera.annotate_text = state + ' ' + str(ssocr_val[state]) + ' ' + str(step)
+		
+			if state == "Rotate":
+				overlay = overlay_img(overlay)
+				overlay.alpha = 128
 
-			overlay = overlay_rotation(overlay, overlay_img, ssocr_rotate)
-
-			#state = 'Save'
-			#rswitch.button = 1 # fake click to save now
-
-		elif state == "Threshold":
-
-			step = dv / 2
-			print "step",step
-			ssocr_threshold += step
-			ssocr_threshold = ( 100 + ssocr_threshold ) % 100
-
-			print "# Threshold",step,ssocr_threshold
-			camera.annotate_text = "Threshold " + str(ssocr_threshold) + ' ' + str(step)
 
 		else:
 			print "# ignored rotation in state",state
@@ -284,7 +282,7 @@ while True:
 			camera.annotate_text = state + " [selected]"
 
 		# states which capture clicks when not in_menu
-		elif state == "Rotation":
+		elif state == "Flip":
 			state = "Zoom"
 			camera.annotate_text = state 
 			print "# /tmp/capture-rotation", camera.rotation
@@ -307,12 +305,31 @@ while True:
 			else:
 				camera.annotate_text = "Zoom %d %.3f" % ( zoom_axis, camera.zoom[zoom_axis] )
 
+		save_ocr = False
+
+
 
 		# execute selected state after button click (ignore in_menu)
 		if old_in_menu == True and in_menu == False:
-			print "# skip click ", state
+			print "# first click ", state
 			camera.annotate_text = '[' + state + ']'
-		elif state == "Save" or state == "OCR" or state == "Threshold":
+
+			if state == 'Save':
+				save_ocr = True
+
+		elif state == "Rotate" or state == "Threshold" or state == "Digits":
+			save_ocr = True
+		elif state == "Save":
+			save_ocr = True
+			in_menu = True
+
+		elif state == "Exit":
+			exit(0)
+			in_menu = True
+		else:
+			print state, " NOT HANDLED"
+
+		if save_ocr:
 			#file = "%s/capture-%03d.jpg" % ( os.path.abspath( os.curdir ), frame_nr )
 			file = "/tmp/capture-%03d.jpg" % ( frame_nr )
 			print "#BUTTON",file
@@ -322,14 +339,6 @@ while True:
 			frame_nr += 1
 
 			overlay = ssocr(overlay, file)
-
-			in_menu = True
-
-		elif state == "Exit":
-			exit(0)
-			in_menu = True
-		else:
-			print "# no code for button", state
 
 	rswitch.button = 0
 
