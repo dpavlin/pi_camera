@@ -124,6 +124,10 @@ def overlay_rotation(overlay, img, rotation):
 
 	draw.line([(x,y),(cx,cy)], fill=1, width=1)
 
+	d90 = math.pi/2
+	draw.line([(cx,cy),(cx + math.cos(a+d90) * rx,cy + math.sin(a+d90) * ry)], fill=1, width=2)
+	draw.line([(cx,cy),(cx + math.cos(a-d90) * rx,cy + math.sin(a-d90) * ry)], fill=1, width=3)
+
         # derivatives
         dx = -math.sin(a) * rx / (rx+ry)
         dy = math.cos(a) * ry / (rx+ry)
