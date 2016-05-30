@@ -1,6 +1,7 @@
 from Tkinter import *
 from tkFileDialog import askopenfilename
 from PIL import Image, ImageTk
+import sys
 
 if __name__ == "__main__":
     root = Tk()
@@ -20,16 +21,27 @@ if __name__ == "__main__":
     frame.pack(fill=BOTH,expand=1)
 
     #adding the image
-    File = askopenfilename(parent=root, initialdir="C:/",title='Choose an image.')
-    img = ImageTk.PhotoImage(Image.open(File))
+    File = sys.argv[1]
+    try:
+	img = ImageTk.PhotoImage(Image.open(File))
+    except:
+	File = askopenfilename(parent=root, initialdir="",title='Choose an image.')
+	img = ImageTk.PhotoImage(Image.open(File))
+
     canvas.create_image(0,0,image=img,anchor="nw")
     canvas.config(scrollregion=canvas.bbox(ALL))
 
     #function to be called when mouse is clicked
 
+    box = []
+
     def printcoords(event):
         #outputting x and y coords to console
         print (event.x,event.y)
+	box.append((event.x,event.y))
+	print '# box = ',str(box)
+	if len(box) == 4:
+		exit(0)
 
     #mouseclick event
     canvas.bind("<Button 1>",printcoords)
