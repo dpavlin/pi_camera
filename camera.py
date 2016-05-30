@@ -38,7 +38,7 @@ print "Camera %dx%d" % camera.resolution
 
 in_menu = False
 state = 'Flip'
-valid_states = [ 'Flip', 'Zoom', 'Save', 'Rotate', 'Shear', 'Threshold', 'Digits', 'Exit' ]
+valid_states = [ 'Flip', 'Zoom', 'Save', 'Crop', 'Rotate', 'Shear', 'Threshold', 'Digits', 'Exit' ]
 
 try:
 	with open("/tmp/capture-zoom", 'r') as f:
@@ -90,10 +90,9 @@ camera.annotate_text = state
 print state
 
 zoom_axis = 0
+crop_axis = 0
 
-
-
-ssocr_val = { 'Rotate': 0, 'Threshold': 90, 'Digits': -1, 'Shear': 0 }
+ssocr_val = { 'Rotate': 0, 'Threshold': 90, 'Digits': -1, 'Shear': 0, 'Crop': [ 0,0,1,1 ] }
 ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10, 'Shear':100 }
 for k in ssocr_val:
 	try:
@@ -168,6 +167,18 @@ def overlay_img(overlay, img = None):
 			draw.line([( img.size[0]/2+dx,0 ),( img.size[0]/2-dx, img.size[1] )], fill=1, width=1)
 
 
+		elif state == 'Crop':
+			c = ssocr_val['Crop'][crop_axis]
+
+			if crop_axis == 0 or crop_axis == 2:
+				c = c * img.size[0]
+				draw.line([( c, 0 ),( c, img.size[1] )], fill=1, width=1)
+			else:
+				c = c * img.size[1]
+				draw.line([( 0, c ),( img.size[0], c )], fill=1, width=1)
+
+
+
 	if ( overlay != None ):
 		camera.remove_overlay(overlay)
 		overlay = None
@@ -185,7 +196,17 @@ def overlay_img(overlay, img = None):
 
 
 def ssocr(overlay, file):
-	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits -1 --threshold=%d r_threshold rotate %d shear %d %s 2>&1 > %s.out" % ( file, ssocr_val['Threshold'], ssocr_val['Rotate'], int(camera.resolution[0] * ssocr_val['Shear'] / 100), file, file )
+	opt=""
+	if ( ssocr_val['Crop'] != ( 0,0,1,1 ) ):
+		c = ssocr_val['Crop']
+		w,h = camera.resolution
+		opt+="crop %d %d %d %d" % ( int(c[0]*w), int(c[1]*h), int(c[2]*w), int(c[3]*h) )
+	if ( ssocr_val['Shear'] != 0):
+		opt+="shear %d " % ( int(camera.resolution[0] * ssocr_val['Shear'] / 100 ) )
+	if ( ssocr_val['Rotate'] != 0):
+		opt+="rotate %d " % ( ssocr_val['Rotate'] )
+
+	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits -1 --threshold=%d r_threshold %s %s 2>&1 > %s.out" % ( file, ssocr_val['Threshold'], opt, file, file )
 	print "# ",command
 	camera.annotate_text = command
 	subprocess.call(command, shell=True)
@@ -232,6 +253,8 @@ while True:
 			camera.annotate_text = state + " [click to select]"
 			print "# new state", state, in_menu
 
+
+
 		elif state == "Flip":
 
 			step = 0
@@ -242,11 +265,8 @@ while True:
 			camera.rotation = camera.rotation + step
 			camera.annotate_text = "Flip="+str(camera.rotation)
 
-		elif state == "Zoom":
 
-			if ( overlay != None ):
-				camera.remove_overlay(overlay)
-				overlay = None
+		elif state == "Zoom":
 
 			step = dv * 0.01
 			print "step",step
@@ -274,6 +294,28 @@ while True:
 				print "#zoom",camera.zoom,z
 			except:
 				print "# invalid zoom ",z
+
+
+		elif state == "Crop":
+
+			step = dv * 0.01
+			print "step",step
+
+			ssocr_val['Crop'][crop_axis] -= step # left = dec, right = inc
+			print "#Crop",ssocr_val['Crop']
+
+			if ssocr_val['Crop'][crop_axis] < 0:
+				ssocr_val['Crop'][crop_axis] = 0
+				step = 'MIN'
+
+			max = 1
+			if ssocr_val['Crop'][crop_axis] > max:
+				ssocr_val['Crop'][crop_axis] = max 
+				step = 'MAX'
+
+			camera.annotate_text = "Crop %d %.3f %s" % ( crop_axis, ssocr_val['Crop'][crop_axis],step )
+			overlay = overlay_img(overlay)
+			overlay.alpha = 128
 
 		elif state in [ 'Rotate', 'Threshold', 'Digits', 'Shear' ]:
 
@@ -325,6 +367,23 @@ while True:
 				zoom_axis = 0
 			else:
 				camera.annotate_text = "Zoom %d %.3f" % ( zoom_axis, camera.zoom[zoom_axis] )
+
+		elif state == "Crop":
+			crop_axis += 1
+
+			if crop_axis > 3:
+				state = "Save"
+				in_menu = True
+				camera.annotate_text = state
+				# save camera crop to file
+				print "# /tmp/capture-ssocr-crop", camera.crop
+				with open("/tmp/capture-ssocr-crop", 'w') as f:
+				    for s in ssocr_val['Crop']:
+					f.write(str(s) + '\n')
+				crop_axis = 0
+			else:
+				camera.annotate_text = "Crop %d %.3f" % ( crop_axis, ssocr_val['Crop'][crop_axis] )
+
 
 		save_ocr = False
 
