@@ -38,7 +38,7 @@ print "Camera %dx%d" % camera.resolution
 
 in_menu = False
 state = 'Flip'
-valid_states = [ 'Flip', 'Zoom', 'Save', 'Crop', 'Rotate', 'Shear', 'Threshold', 'Digits', 'Exit' ]
+valid_states = [ 'Flip', 'Brightness', 'Zoom', 'Save', 'Crop', 'Rotate', 'Shear', 'Threshold', 'Digits', 'Exit' ]
 
 try:
 	with open("/tmp/capture-zoom", 'r') as f:
@@ -50,15 +50,21 @@ try:
 except:
 	print "# camera.zoom", camera.zoom
 
-try:
-	with open("/tmp/capture-rotation", 'r') as f:
-		rotation = [line.rstrip('\n') for line in f]
-		camera.rotation = rotation[0]
-		print "# camera.rotation", camera.rotation
-		in_menu = True
-		state = 'Save'
-except:
-	print "# camera.rotation", camera.rotation
+for param in [ 'rotation', 'brightness' ]:
+	file = '/tmp/capture-'+param
+	try:
+		with open(file, 'r') as f:
+			d = [line.rstrip('\n') for line in f]
+			print "#",file,d
+			if param == 'rotation':
+				camera.rotation = int(d[0])
+				print camera.rotation
+			elif param == 'brightness':
+				camera.brightness = int(d[0])
+			else:
+				print 'ERROR',param
+	except:
+		print "# no", file
 
 
 # This is the event callback routine to handle events
@@ -93,7 +99,8 @@ zoom_axis = 0
 crop_axis = 0
 
 ssocr_val = { 'Rotate': 0, 'Threshold': 90, 'Digits': -1, 'Shear': 0, 'Crop': [ 0,0,1,1 ] }
-ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10, 'Shear':100 }
+ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10, 'Shear':100, 'Brightness':100 }
+ssocr_val['Brightness'] = camera.brightness
 for k in ssocr_val:
 	try:
 		with open("/tmp/capture-ssocr-"+k, 'r') as f:
@@ -131,12 +138,6 @@ def overlay_img(overlay, img = None):
 			# ellips radii
 			rx = (bbox[2] - bbox[0]) / 2
 			ry = (bbox[3] - bbox[1]) / 2
-
-			# make circle
-			if rx > ry:
-				rx = ry
-			if ry > rx:
-				ry = rx
 
 			# box centre
 			cx = bbox[0] + rx
@@ -200,11 +201,11 @@ def ssocr(overlay, file):
 	if ( ssocr_val['Crop'] != ( 0,0,1,1 ) ):
 		c = ssocr_val['Crop']
 		w,h = camera.resolution
-		opt+="crop %d %d %d %d" % ( int(c[0]*w), int(c[1]*h), int(c[2]*w), int(c[3]*h) )
+		opt+=" crop %d %d %d %d" % ( int(c[0]*w), int(c[1]*h), int(c[2]*w), int(c[3]*h) )
 	if ( ssocr_val['Shear'] != 0):
-		opt+="shear %d " % ( int(camera.resolution[0] * ssocr_val['Shear'] / 100 ) )
+		opt+=" shear %d" % ( int(camera.resolution[0] * ssocr_val['Shear'] / 100 ) )
 	if ( ssocr_val['Rotate'] != 0):
-		opt+="rotate %d " % ( ssocr_val['Rotate'] )
+		opt+=" rotate %d" % ( ssocr_val['Rotate'] )
 
 	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits -1 --threshold=%d r_threshold %s %s 2>&1 > %s.out" % ( file, ssocr_val['Threshold'], opt, file, file )
 	print "# ",command
@@ -317,7 +318,7 @@ while True:
 			overlay = overlay_img(overlay)
 			overlay.alpha = 128
 
-		elif state in [ 'Rotate', 'Threshold', 'Digits', 'Shear' ]:
+		elif state in ssocr_max.keys():
 
 			step = dv / 2
 			max = ssocr_max[state]
@@ -331,6 +332,10 @@ while True:
 				overlay = overlay_img(overlay)
 				overlay.alpha = 128
 
+			if state == 'Brightness':
+				print 'XXX', camera.brightness, state
+				camera.brightness = int(ssocr_val[state]);
+				print 'XXX', camera.brightness
 
 		else:
 			print "# ignored rotation in state",state
@@ -397,7 +402,7 @@ while True:
 			if state == 'Save':
 				save_ocr = True
 
-		elif state in [ 'Rotate', 'Threshold', 'Digits', 'Shear' ]:
+		elif state in ssocr_max.keys():
 			save_ocr = True
 			with open("/tmp/capture-ssocr-"+state, 'w') as f:
 				f.write(str(ssocr_val[state])+'\n')
