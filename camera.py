@@ -31,13 +31,14 @@ camera.start_preview()
 #camera.video_stabilization = 1
 
 camera.resolution = (640, 480)
+#camera.resolution = (1296, 730) # too slow for rpi-b
 camera.framerate = 30
 
 print "Camera %dx%d" % camera.resolution
 
 in_menu = False
 state = 'Flip'
-valid_states = [ 'Flip', 'Zoom', 'Save', 'Rotate', 'Threshold', 'Digits', 'Exit' ]
+valid_states = [ 'Flip', 'Zoom', 'Save', 'Rotate', 'Shear', 'Threshold', 'Digits', 'Exit' ]
 
 try:
 	with open("/tmp/capture-zoom", 'r') as f:
@@ -92,8 +93,8 @@ zoom_axis = 0
 
 
 
-ssocr_val = { 'Rotate': 0, 'Threshold': 90, 'Digits': 4 }
-ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10 }
+ssocr_val = { 'Rotate': 0, 'Threshold': 90, 'Digits': -1, 'Shear': 0 }
+ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10, 'Shear':255 }
 for k in ssocr_val:
 	try:
 		with open("/tmp/capture-ssocr-"+k, 'r') as f:
@@ -173,7 +174,7 @@ def overlay_img(overlay, img = None):
 
 
 def ssocr(overlay, file):
-	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits -1 --threshold=%d rotate %d r_threshold %s 2>&1 > %s.out" % ( file, ssocr_val['Threshold'], ssocr_val['Rotate'], file, file )
+	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits -1 --threshold=%d r_threshold rotate %d shear %d %s 2>&1 > %s.out" % ( file, ssocr_val['Threshold'], ssocr_val['Rotate'], ssocr_val['Shear'], file, file )
 	print "# ",command
 	camera.annotate_text = command
 	subprocess.call(command, shell=True)
@@ -263,7 +264,7 @@ while True:
 			except:
 				print "# invalid zoom ",z
 
-		elif state == "Rotate" or state == "Threshold" or state == 'Digits':
+		elif state in [ 'Rotate', 'Threshold', 'Digits', 'Shear' ]:
 
 			step = dv / 2
 			max = ssocr_max[state]
@@ -326,7 +327,7 @@ while True:
 			if state == 'Save':
 				save_ocr = True
 
-		elif state == "Rotate" or state == "Threshold" or state == "Digits":
+		elif state in [ 'Rotate', 'Threshold', 'Digits', 'Shear' ]:
 			save_ocr = True
 			with open("/tmp/capture-ssocr-"+state, 'w') as f:
 				f.write(str(ssocr_val[state])+'\n')
