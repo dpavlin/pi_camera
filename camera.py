@@ -233,6 +233,7 @@ while True:
 		print "# rotary encoder = ",v, "dv=",dv
 
 		if in_menu:
+			i = None
 			if state in valid_states:
 				i = valid_states.index(state)
 				mod = len(valid_states)
@@ -242,16 +243,29 @@ while True:
 				else:
 					i -= 1
 
-				try:
-					print "# new state",state,i
-					state = valid_states[ i ]
-				except:
-					print "# invalid index ",i,mod
-					state = valid_states[0]
+
+				# cycle
+				if i < 0:
+					i = mod - 1
+				if i >= mod:
+					i = 0
+
+					i = 0
 			else:
 				print "# invalid state",state," in_menu"
 
-			camera.annotate_text = state + " [click to select]"
+			state = valid_states[i]
+			print "# new state",state
+
+			out = ''
+			for s in valid_states:
+				if s == state:
+					out += '*' + state + '* '
+				else:
+					out += ' ' + s + '  '
+
+
+			camera.annotate_text = out + '\n'
 			print "# new state", state, in_menu
 
 
