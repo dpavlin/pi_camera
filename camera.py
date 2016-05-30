@@ -94,7 +94,7 @@ zoom_axis = 0
 
 
 ssocr_val = { 'Rotate': 0, 'Threshold': 90, 'Digits': -1, 'Shear': 0 }
-ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10, 'Shear':255 }
+ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10, 'Shear':100 }
 for k in ssocr_val:
 	try:
 		with open("/tmp/capture-ssocr-"+k, 'r') as f:
@@ -109,52 +109,63 @@ overlay = None
 
 def overlay_img(overlay, img = None):
 
-	rotation = ssocr_val['Rotate']
-
 	if ( img == None ):
 		img = Image.new('1',(320,200),0)
 		if overlay != None:
 			overlay.opacity = 128
 
 		draw = ImageDraw.Draw(img) 
-		bbox = (img.size[0] / 4,img.size[1] / 4,img.size[0] / 4 * 3,img.size[1] / 4 * 3)
-		draw.arc(bbox, 0, rotation, 1)
 
-		bbox = (0,0,img.size[0],img.size[1])
 
-		# radians
-		a = ( 360 - rotation + 90 % 360 ) * math.pi / 180
+		if state == 'Rotate':
 
-		# ellips radii
-		rx = (bbox[2] - bbox[0]) / 2
-		ry = (bbox[3] - bbox[1]) / 2
+			rotation = ssocr_val['Rotate']
 
-		# make circle
-		if rx > ry:
-			rx = ry
-		if ry > rx:
-			ry = rx
+			bbox = (img.size[0] / 4,img.size[1] / 4,img.size[0] / 4 * 3,img.size[1] / 4 * 3)
+			draw.arc(bbox, 0, rotation, 1)
 
-		# box centre
-		cx = bbox[0] + rx
-		cy = bbox[1] + ry
+			bbox = (0,0,img.size[0],img.size[1])
 
-		# x,y centre
-		x = cx + math.cos(a) * rx
-		y = cy + math.sin(a) * ry
+			# radians
+			a = ( 360 - rotation + 90 % 360 ) * math.pi / 180
 
-		draw.line([(x,y),(cx,cy)], fill=1, width=1)
+			# ellips radii
+			rx = (bbox[2] - bbox[0]) / 2
+			ry = (bbox[3] - bbox[1]) / 2
 
-		d90 = math.pi/2
-		draw.line([(cx,cy),(cx + math.cos(a+d90) * rx,cy + math.sin(a+d90) * ry)], fill=1, width=2)
-		draw.line([(cx,cy),(cx + math.cos(a-d90) * rx,cy + math.sin(a-d90) * ry)], fill=1, width=3)
+			# make circle
+			if rx > ry:
+				rx = ry
+			if ry > rx:
+				ry = rx
 
-		# derivatives
-		dx = -math.sin(a) * rx / (rx+ry)
-		dy = math.cos(a) * ry / (rx+ry)
+			# box centre
+			cx = bbox[0] + rx
+			cy = bbox[1] + ry
 
-		l = 4
-		draw.line([(x-dx*l,y-dy*l), (x+dx*l, y+dy*l)], fill=1, width=3)
+			# x,y centre
+			x = cx + math.cos(a) * rx
+			y = cy + math.sin(a) * ry
+
+			draw.line([(x,y),(cx,cy)], fill=1, width=1)
+
+			d90 = math.pi/2
+			draw.line([(cx,cy),(cx + math.cos(a+d90) * rx,cy + math.sin(a+d90) * ry)], fill=1, width=2)
+			draw.line([(cx,cy),(cx + math.cos(a-d90) * rx,cy + math.sin(a-d90) * ry)], fill=1, width=3)
+
+			# derivatives
+			dx = -math.sin(a) * rx / (rx+ry)
+			dy = math.cos(a) * ry / (rx+ry)
+
+			l = 4
+			draw.line([(x-dx*l,y-dy*l), (x+dx*l, y+dy*l)], fill=1, width=3)
+
+
+		elif state == 'Shear':
+			s = ssocr_val['Shear']
+			dx = int(camera.resolution[0] * s / 100 / 4)
+
+			draw.line([( img.size[0]/2+dx,0 ),( img.size[0]/2-dx, img.size[1] )], fill=1, width=1)
 
 
 	if ( overlay != None ):
@@ -174,7 +185,7 @@ def overlay_img(overlay, img = None):
 
 
 def ssocr(overlay, file):
-	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits -1 --threshold=%d r_threshold rotate %d shear %d %s 2>&1 > %s.out" % ( file, ssocr_val['Threshold'], ssocr_val['Rotate'], ssocr_val['Shear'], file, file )
+	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits -1 --threshold=%d r_threshold rotate %d shear %d %s 2>&1 > %s.out" % ( file, ssocr_val['Threshold'], ssocr_val['Rotate'], int(camera.resolution[0] * ssocr_val['Shear'] / 100), file, file )
 	print "# ",command
 	camera.annotate_text = command
 	subprocess.call(command, shell=True)
@@ -274,7 +285,7 @@ while True:
 			print "# ",state,ssocr_val[state],step,max
 			camera.annotate_text = state + ' ' + str(ssocr_val[state]) + ' ' + str(step)
 		
-			if state == "Rotate":
+			if state in [ 'Rotate', 'Shear' ]:
 				overlay = overlay_img(overlay)
 				overlay.alpha = 128
 
