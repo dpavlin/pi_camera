@@ -94,6 +94,15 @@ zoom_axis = 0
 
 ssocr_val = { 'Rotate': 0, 'Threshold': 90, 'Digits': 4 }
 ssocr_max = { 'Rotate': 360, 'Threshold': 100, 'Digits': 10 }
+for k in ssocr_val:
+	try:
+		with open("/tmp/capture-ssocr-"+k, 'r') as f:
+			lines = [line.rstrip('\n') for line in f]
+			ssocr_val[k] = int(lines[0])
+			print "# /tmp/capture-ssocr-"+k+"="+str(ssocr_val[k])
+	except:
+		print "# default", k, ssocr_val[k]
+
 
 overlay = None
 
@@ -319,6 +328,10 @@ while True:
 
 		elif state == "Rotate" or state == "Threshold" or state == "Digits":
 			save_ocr = True
+			with open("/tmp/capture-ssocr-"+state, 'w') as f:
+				f.write(str(ssocr_val[state])+'\n')
+			in_menu = True
+
 		elif state == "Save":
 			save_ocr = True
 			in_menu = True
