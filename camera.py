@@ -152,7 +152,7 @@ def overlay_rotation(overlay, img, rotation):
 
 
 def ssocr(overlay, file, rotate):
-	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits 3 rotate %d r_threshold %s 2>&1 > %s.out" % ( file, ssocr_rotate, file, file )
+	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits 4 rotate %d r_threshold %s 2>&1 > %s.out" % ( file, ssocr_rotate, file, file )
 	print "# ",command
 	camera.annotate_text = command
 	subprocess.call(command, shell=True)
@@ -164,7 +164,7 @@ def ssocr(overlay, file, rotate):
 	overlay = overlay_rotation(overlay, img, rotate)
 
 	with open(file+'.out', 'r') as f:
-		out = [float(line.rstrip('\n')) for line in f]
+		out = [line.rstrip('\n') for line in f]
 		print "# out", out
 
 	camera.annotate_text = state + ' ' + str(ssocr_rotate) + ' ' + str(out)
