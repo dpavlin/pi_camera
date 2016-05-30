@@ -37,7 +37,7 @@ print "Camera %dx%d" % camera.resolution
 
 in_menu = False
 state = 'Rotation'
-valid_states = [ 'Rotation', 'Zoom', 'Save', 'Exit' ]
+valid_states = [ 'Rotation', 'Zoom', 'Save', 'OCR', 'Threshold', 'Exit' ]
 
 try:
 	with open("/tmp/capture-zoom", 'r') as f:
@@ -91,6 +91,7 @@ zoom_axis = 0
 
 
 ssocr_rotate = 0
+ssocr_threshold = 50
 
 overlay = None
 overlay_img = None
@@ -101,39 +102,45 @@ def overlay_rotation(overlay, img, rotation):
 		img = Image.new('1',(320,200),0)
 		overlay.opacity = 128
 
-	draw = ImageDraw.Draw(img) 
-	bbox = (img.size[0] / 4,img.size[1] / 4,img.size[0] / 4 * 3,img.size[1] / 4 * 3)
-	draw.arc(bbox, 0, rotation, 1)
+		draw = ImageDraw.Draw(img) 
+		bbox = (img.size[0] / 4,img.size[1] / 4,img.size[0] / 4 * 3,img.size[1] / 4 * 3)
+		draw.arc(bbox, 0, rotation, 1)
 
-	bbox = (0,0,img.size[0],img.size[1])
+		bbox = (0,0,img.size[0],img.size[1])
 
-	# radians
-	a = ( 360 - rotation + 90 % 360 ) * math.pi / 180
+		# radians
+		a = ( 360 - rotation + 90 % 360 ) * math.pi / 180
 
-	# ellips radii
-	rx = (bbox[2] - bbox[0]) / 2
-	ry = (bbox[3] - bbox[1]) / 2
+		# ellips radii
+		rx = (bbox[2] - bbox[0]) / 2
+		ry = (bbox[3] - bbox[1]) / 2
 
-	# box centre
-	cx = bbox[0] + rx
-	cy = bbox[1] + ry
+		# make circle
+		if rx > ry:
+			rx = ry
+		if ry > rx:
+			ry = rx
 
-	# x,y centre
-        x = cx + math.cos(a) * rx
-        y = cy + math.sin(a) * ry
+		# box centre
+		cx = bbox[0] + rx
+		cy = bbox[1] + ry
 
-	draw.line([(x,y),(cx,cy)], fill=1, width=1)
+		# x,y centre
+		x = cx + math.cos(a) * rx
+		y = cy + math.sin(a) * ry
 
-	d90 = math.pi/2
-	draw.line([(cx,cy),(cx + math.cos(a+d90) * rx,cy + math.sin(a+d90) * ry)], fill=1, width=2)
-	draw.line([(cx,cy),(cx + math.cos(a-d90) * rx,cy + math.sin(a-d90) * ry)], fill=1, width=3)
+		draw.line([(x,y),(cx,cy)], fill=1, width=1)
 
-        # derivatives
-        dx = -math.sin(a) * rx / (rx+ry)
-        dy = math.cos(a) * ry / (rx+ry)
+		d90 = math.pi/2
+		draw.line([(cx,cy),(cx + math.cos(a+d90) * rx,cy + math.sin(a+d90) * ry)], fill=1, width=2)
+		draw.line([(cx,cy),(cx + math.cos(a-d90) * rx,cy + math.sin(a-d90) * ry)], fill=1, width=3)
 
-	l = 4
-	draw.line([(x-dx*l,y-dy*l), (x+dx*l, y+dy*l)], fill=1, width=3)
+		# derivatives
+		dx = -math.sin(a) * rx / (rx+ry)
+		dy = math.cos(a) * ry / (rx+ry)
+
+		l = 4
+		draw.line([(x-dx*l,y-dy*l), (x+dx*l, y+dy*l)], fill=1, width=3)
 
 
 	if ( overlay != None ):
@@ -151,8 +158,8 @@ def overlay_rotation(overlay, img, rotation):
 	return overlay
 
 
-def ssocr(overlay, file, rotate):
-	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits 4 rotate %d r_threshold %s 2>&1 > %s.out" % ( file, ssocr_rotate, file, file )
+def ssocr(overlay, file):
+	command="./ssocr/ssocr.rpi --debug-image=%s.debug.png --foreground=white --background=black --number-digits 4 --threshold=%d rotate %d r_threshold %s 2>&1 > %s.out" % ( file, ssocr_threshold, ssocr_rotate, file, file )
 	print "# ",command
 	camera.annotate_text = command
 	subprocess.call(command, shell=True)
@@ -161,7 +168,7 @@ def ssocr(overlay, file, rotate):
 	img = Image.open(file+'.debug.png')
 	overlay_img = img
 
-	overlay = overlay_rotation(overlay, img, rotate)
+	overlay = overlay_rotation(overlay, img, ssocr_rotate)
 
 	with open(file+'.out', 'r') as f:
 		out = [line.rstrip('\n') for line in f]
@@ -182,16 +189,20 @@ while True:
 			if state in valid_states:
 				i = valid_states.index(state)
 				mod = len(valid_states)
+				print "# old state",state,i,mod
 				if dv > 0:
 					i += 1
 				else:
 					i -= 1
 
 				try:
+					print "# new state",state,i
 					state = valid_states[ i ]
 				except:
 					print "# invalid index ",i,mod
 					state = valid_states[0]
+			else:
+				print "# invalid state",state," in_menu"
 
 			camera.annotate_text = state + " [click to select]"
 			print "# new state", state, in_menu
@@ -250,6 +261,16 @@ while True:
 			#state = 'Save'
 			#rswitch.button = 1 # fake click to save now
 
+		elif state == "Threshold":
+
+			step = dv / 2
+			print "step",step
+			ssocr_threshold += step
+			ssocr_threshold = ( 100 + ssocr_threshold ) % 100
+
+			print "# Threshold",step,ssocr_threshold
+			camera.annotate_text = "Threshold " + str(ssocr_threshold) + ' ' + str(step)
+
 		else:
 			print "# ignored rotation in state",state
 
@@ -257,6 +278,7 @@ while True:
 		last_value = v
 
 	if rswitch.button == 1:
+		old_in_menu = in_menu
 		if in_menu:
 			in_menu = False
 			camera.annotate_text = state + " [selected]"
@@ -287,7 +309,10 @@ while True:
 
 
 		# execute selected state after button click (ignore in_menu)
-		if state == "Save" or state == "OCR":
+		if old_in_menu == True and in_menu == False:
+			print "# skip click ", state
+			camera.annotate_text = '[' + state + ']'
+		elif state == "Save" or state == "OCR" or state == "Threshold":
 			#file = "%s/capture-%03d.jpg" % ( os.path.abspath( os.curdir ), frame_nr )
 			file = "/tmp/capture-%03d.jpg" % ( frame_nr )
 			print "#BUTTON",file
@@ -296,9 +321,9 @@ while True:
 			camera.annotate_text = "Save " + file
 			frame_nr += 1
 
-			overlay = ssocr(overlay, file, ssocr_rotate)
+			overlay = ssocr(overlay, file)
 
-			state = 'OCR'
+			in_menu = True
 
 		elif state == "Exit":
 			exit(0)
