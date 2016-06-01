@@ -27,12 +27,18 @@ BUTTON = 17
 import picamera
 
 camera = picamera.PiCamera()
-camera.start_preview()
 #camera.video_stabilization = 1
 
-camera.resolution = (640, 480)
-#camera.resolution = (1296, 730) # too slow for rpi-b
+res_steps = [
+ 	(640,480,30),
+ 	(1296,972,20),
+	(2592,1944,10)
+]
+
+camera.resolution = (640,480)
 camera.framerate = 30
+
+camera.start_preview()
 
 print "Camera %dx%d" % camera.resolution
 
@@ -384,6 +390,21 @@ while True:
 				    for s in camera.zoom:
 					f.write(str(s) + '\n')
 				zoom_axis = 0
+
+				z = camera.zoom
+				zx = z[2] - z[0]
+				zy = z[3] - z[1]
+				print 'XXX',zx,zy
+
+				new_res = res_steps[ int(zx*3) - 1 ]
+				if ( camera.resolution != new_res ):
+					camera.stop_preview()
+					camera.resolution = (new_res[0],new_res[1])
+					camera.framerate = new_res[2]
+					print "Camera %dx%d" % camera.resolution
+					camera.start_preview()
+
+
 			else:
 				camera.annotate_text = "Zoom %d %.3f" % ( zoom_axis, camera.zoom[zoom_axis] )
 
